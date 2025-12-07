@@ -33,7 +33,7 @@ class VersionChecker:
             - latest_version: str, 最新版本号
             - release_url: str, 发布页面链接
             - release_notes: str, 发布说明
-            如果检查失败或无更新，返回 None
+            如果检查失败，返回 None
         """
         try:
             # 获取最新版本信息
@@ -70,34 +70,52 @@ class VersionChecker:
     def _fetch_latest_release(self) -> Optional[Dict[str, Any]]:
         """
         从 GitHub API 获取最新 release 信息
-        
-        Returns:
-            包含 release 信息的字典，失败返回 None
+
+        优先尝试直连（不使用任何代理），如果失败，再回退到使用系统代理。
         """
-        try:
-            req = urllib.request.Request(
-                self.GITHUB_API_URL,
-                headers={"User-Agent": f"PasteMD/{self.current_version}",
-                         "version": self.current_version}
-            )
-            
-            with urllib.request.urlopen(req, timeout=self.TIMEOUT) as response:
-                if response.status == 200:
-                    data = json.loads(response.read().decode("utf-8"))
-                    return data
+        req = urllib.request.Request(
+            self.GITHUB_API_URL,
+            headers={
+                "User-Agent": f"PasteMD/{self.current_version}",
+                "version": self.current_version,
+            },
+        )
+
+        # 依次尝试：先不使用代理，再使用系统代理
+        for use_proxy in (False, True):
+            try:
+                if not use_proxy:
+                    # 先不使用代理
+                    log("Checking version (no proxy)...")
+                    opener = urllib.request.build_opener(
+                        urllib.request.ProxyHandler({})
+                    )
+                    response = opener.open(req, timeout=self.TIMEOUT)
                 else:
-                    log(f"GitHub API returned status code: {response.status}")
-                    return None
-                    
-        except urllib.error.URLError as e:
-            log(f"Network error while checking version: {e}")
-            return None
-        except json.JSONDecodeError as e:
-            log(f"Failed to parse GitHub API response: {e}")
-            return None
-        except Exception as e:
-            log(f"Unexpected error while fetching release info: {e}")
-            return None
+                    # 回退：使用系统代理 / 环境变量配置的代理
+                    log("Direct check failed, retrying with system proxy...")
+                    response = urllib.request.urlopen(req, timeout=self.TIMEOUT)
+
+                with response:
+                    if response.status == 200:
+                        try:
+                            data = json.loads(response.read().decode("utf-8"))
+                            return data
+                        except json.JSONDecodeError as e:
+                            log(f"Failed to parse GitHub API response: {e}")
+                            return None
+
+            except urllib.error.URLError as e:
+                # 第一轮直连失败会进入这里，for 循环会继续第二轮使用代理
+                # 第二轮再失败就直接退出循环
+                mode = "no-proxy" if not use_proxy else "proxy"
+                log(f"Network error while checking version ({mode}): {e}")
+            except Exception as e:
+                mode = "no-proxy" if not use_proxy else "proxy"
+                log(f"Unexpected error while fetching release info ({mode}): {e}")
+
+        # 两种方式都失败
+        return None
     
     def _is_newer_version(self, latest: str, current: str) -> bool:
         """
