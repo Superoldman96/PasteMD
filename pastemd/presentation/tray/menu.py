@@ -31,6 +31,8 @@ class TrayMenuManager:
         self.version_checker = None  # 将由外部设置或按需创建
         self.latest_version = None  # 存储最新版本号
         self.latest_release_url = None  # 存储最新版本的下载链接
+        self.hotkey_dialog = None
+        self.settings_dialog = None
     
     def set_restart_hotkey_callback(self, callback):
         """设置重启热键的回调函数"""
@@ -163,26 +165,39 @@ class TrayMenuManager:
                     t("tray.error.hotkey_save_failed", error=str(e)),
                     ok=False)
                 raise
-        
+
         def show_dialog_on_main():
             """在主线程打开/销毁 Tk 对话框"""
+            paused = False
             try:
+                if self.hotkey_dialog and self.hotkey_dialog.is_alive():
+                    self.hotkey_dialog.restore_and_focus()
+                    return
+                
                 # 暂停全局热键监听（避免录制时触发）
                 if self.pause_hotkey_callback:
                     self.pause_hotkey_callback()
+                    paused = True
                 
                 dialog = HotkeyDialog(
                     current_hotkey=app_state.hotkey_str,
                     on_save=save_hotkey,
                     on_close=self.resume_hotkey_callback  # 关闭对话框时恢复监听
                 )
+                self.hotkey_dialog = dialog
+
+                def _clear_dialog_ref(event=None):
+                    if getattr(event, "widget", None) is dialog.root or event is None:
+                        self.hotkey_dialog = None
+
+                dialog.root.bind("<Destroy>", _clear_dialog_ref)
                 dialog.show()
             except Exception as e:
                 log(f"Failed to show hotkey dialog: {e}")
                 self.notification_manager.notify("PasteMD", t("tray.error.open_hotkey_dialog", error=str(e)), ok=False)
             finally:
                 # 确保恢复热键监听
-                if self.resume_hotkey_callback:
+                if paused and self.resume_hotkey_callback:
                     self.resume_hotkey_callback()
 
         ui_queue = getattr(app_state, "ui_queue", None)
@@ -277,22 +292,35 @@ class TrayMenuManager:
 
         def show_dialog_on_main():
             """在主线程显示设置对话框"""
+            paused = False
             try:
+                if self.settings_dialog and self.settings_dialog.is_alive():
+                    self.settings_dialog.restore_and_focus()
+                    return
+
                 # 暂停热键监听
                 if self.pause_hotkey_callback:
                     self.pause_hotkey_callback()
+                    paused = True
                     
                 dialog = SettingsDialog(
                     on_save=on_settings_save,
                     on_close=self.resume_hotkey_callback
                 )
+                self.settings_dialog = dialog
+
+                def _clear_settings_dialog(event=None):
+                    if getattr(event, "widget", None) is dialog.root or event is None:
+                        self.settings_dialog = None
+
+                dialog.root.bind("<Destroy>", _clear_settings_dialog)
                 dialog.show()
             except Exception as e:
                 log(f"Failed to show settings dialog: {e}")
                 self.notification_manager.notify("PasteMD", f"Error opening settings: {e}", ok=False)
             finally:
                 # 恢复热键监听
-                if self.resume_hotkey_callback:
+                if paused and self.resume_hotkey_callback:
                     self.resume_hotkey_callback()
 
         ui_queue = getattr(app_state, "ui_queue", None)

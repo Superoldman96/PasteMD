@@ -65,6 +65,29 @@ class HotkeyDialog:
         # 热键录制器
         self.recorder = HotkeyRecorder()
     
+    def is_alive(self) -> bool:
+        """判断窗口是否仍然存在"""
+        try:
+            return bool(self.root.winfo_exists())
+        except Exception:
+            return False
+    
+    def restore_and_focus(self):
+        """从最小化恢复并置于前台"""
+        if not self.is_alive():
+            return
+        
+        try:
+            self.root.deiconify()
+            original_topmost = bool(self.root.attributes("-topmost"))
+            self.root.lift()
+            # 通过临时置顶确保窗口浮到前面，再恢复原状态
+            self.root.attributes("-topmost", True)
+            self.root.after(50, lambda: self.root.attributes("-topmost", original_topmost))
+            self.root.focus_force()
+        except Exception as e:
+            log(f"Failed to restore hotkey dialog: {e}")
+    
     def _center_window(self):
         """将窗口居中显示"""
         self.root.update_idletasks()
@@ -275,15 +298,8 @@ class HotkeyDialog:
     def show(self):
         """显示对话框"""
         try:
-            if isinstance(self.root, tk.Toplevel):
-                self.root.wait_window()
-            else:
-                self.root.mainloop()
+            self.root.transient(app_state.root)
+            self.root.deiconify()
+            self.restore_and_focus()
         except Exception as e:
-            log(f"Error in dialog mainloop: {e}")
-        finally:
-            # 确保清理监听器
-            try:
-                self._cleanup()
-            except Exception as e:
-                log(f"Error in cleanup: {e}")
+            log(f"Error showing hotkey dialog: {e}")

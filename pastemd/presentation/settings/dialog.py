@@ -1,5 +1,6 @@
 """Settings configuration dialog."""
 
+import copy
 import os
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
@@ -30,7 +31,7 @@ class SettingsDialog:
         self.config_loader = ConfigLoader()
         
         # 加载当前配置的副本，避免直接修改 app_state
-        self.current_config = app_state.config.copy()
+        self.current_config = copy.deepcopy(app_state.config)
         
         if app_state.root:
             self.root = tk.Toplevel(app_state.root)
@@ -38,9 +39,11 @@ class SettingsDialog:
             self.root = tk.Tk()
             
         self.root.title(t("settings.dialog.title"))
-        # 窗口置顶
-        self.root.attributes("-topmost", True)
-        
+        # 默认不强制置顶，便于最小化
+        self.root.attributes("-topmost", False)
+        # 确保有最小化按钮
+        self.root.resizable(True, True)
+        self.root.attributes("-toolwindow", False)
         # 设置图标
         try:
             icon_path = resource_path("assets/icons/logo.ico")
@@ -63,6 +66,29 @@ class SettingsDialog:
         
         # 创建UI组件
         self._create_widgets()
+    
+    def is_alive(self) -> bool:
+        """判断窗口是否仍存在"""
+        try:
+            return bool(self.root.winfo_exists())
+        except Exception:
+            return False
+    
+    def restore_and_focus(self):
+        """从最小化恢复并置于前台"""
+        if not self.is_alive():
+            return
+        
+        try:
+            self.root.deiconify()
+            original_topmost = bool(self.root.attributes("-topmost"))
+            # 通过临时取消/恢复置顶让窗口浮到最前
+            self.root.attributes("-topmost", False)
+            self.root.lift()
+            self.root.focus_force()
+            self.root.attributes("-topmost", original_topmost)
+        except Exception as e:
+            log(f"Failed to restore settings dialog: {e}")
         
     def _center_window(self):
         """将窗口居中显示"""
@@ -84,6 +110,9 @@ class SettingsDialog:
         self._create_conversion_tab()
         self._create_advanced_tab()
         self._create_experimental_tab()
+        
+        # 避免首次打开时就选中首个输入框
+        self.root.after_idle(self._clear_initial_selection)
         
         # 底部按钮栏
         button_frame = ttk.Frame(self.root, padding="10")
@@ -108,84 +137,92 @@ class SettingsDialog:
     def _create_general_tab(self):
         """创建常规设置选项卡"""
         frame = ttk.Frame(self.notebook, padding=10)
+        frame.columnconfigure(1, weight=1)
         self.notebook.add(frame, text=t("settings.tab.general"))
         
-        # 语言设置
-        ttk.Label(frame, text=t("settings.general.language")).grid(row=0, column=0, sticky=tk.W, pady=5)
+        # 保存目录
+        ttk.Label(frame, text=t("settings.general.save_dir")).grid(row=0, column=0, sticky=tk.W, pady=5)
+        
+        # 文件路径输入框
+        self.save_dir_var = tk.StringVar(value=self.current_config.get("save_dir", ""))
+        self.save_dir_entry = ttk.Entry(frame, textvariable=self.save_dir_var, width=50)
+        self.save_dir_entry.grid(row=0, column=1, sticky=tk.EW, pady=5, padx=5)
+        self.save_dir_entry.bind("<FocusIn>", self._on_focus_in)
+        
+        # 多按钮放在输入框下方
+        button_frame = ttk.Frame(frame)
+        button_frame.grid(row=1, column=1, sticky=tk.W, padx=5, pady=(0, 8))
+        ttk.Button(button_frame, text=t("settings.general.browse"), command=self._browse_save_dir).pack(side=tk.LEFT, padx=2)
+        ttk.Button(button_frame, text=t("settings.general.restore_default"), command=self._restore_default_save_dir).pack(side=tk.LEFT, padx=2)
+        
+        # 复选框选项
+        self.keep_file_var = tk.BooleanVar(value=self.current_config.get("keep_file", False))
+        ttk.Checkbutton(frame, text=t("settings.general.keep_file"), variable=self.keep_file_var).grid(row=2, column=0, columnspan=3, sticky=tk.W, pady=5)
+        
+        self.notify_var = tk.BooleanVar(value=self.current_config.get("notify", True))
+        ttk.Checkbutton(frame, text=t("settings.general.notify"), variable=self.notify_var).grid(row=3, column=0, columnspan=3, sticky=tk.W, pady=5)
+        
+        self.auto_open_var = tk.BooleanVar(value=self.current_config.get("auto_open_on_no_app", True))
+        ttk.Checkbutton(frame, text=t("settings.general.auto_open"), variable=self.auto_open_var).grid(row=4, column=0, columnspan=3, sticky=tk.W, pady=5)
+        
+        self.move_cursor_var = tk.BooleanVar(value=self.current_config.get("move_cursor_to_end", True))
+        ttk.Checkbutton(frame, text=t("settings.general.move_cursor"), variable=self.move_cursor_var).grid(row=5, column=0, columnspan=3, sticky=tk.W, pady=5)
+        
+        # 语言设置（移动到常规页最下方）
+        ttk.Label(frame, text=t("settings.general.language")).grid(row=6, column=0, sticky=tk.W, pady=(15, 5))
         
         # 获取当前语言代码和对应的显示名称
         current_code = self.current_config.get("language", "zh")
         current_label = get_language_label(current_code)
         
         self.lang_var = tk.StringVar(value=current_label)
-        lang_combo = ttk.Combobox(frame, textvariable=self.lang_var, state="readonly")
+        self.lang_combo = ttk.Combobox(frame, textvariable=self.lang_var, state="readonly")
         
         # 构建语言列表
         langs = []
-        self.lang_map = {}
+        self.lang_map: Dict[str, str] = {}
         for code, label in iter_languages():
             langs.append(label)
             self.lang_map[label] = code
         
-        lang_combo['values'] = langs
-        lang_combo.grid(row=0, column=1, sticky=tk.W, padx=5, pady=5)
-        
-        # 保存目录
-        ttk.Label(frame, text=t("settings.general.save_dir")).grid(row=1, column=0, sticky=tk.W, pady=5)
-        
-        # 按钮放在标签旁边
-        button_frame = ttk.Frame(frame)
-        button_frame.grid(row=1, column=1, sticky=tk.W, padx=5, pady=5)
-        
-        ttk.Button(button_frame, text=t("settings.general.browse"), command=self._browse_save_dir).pack(side=tk.LEFT, padx=2)
-        ttk.Button(button_frame, text=t("settings.general.restore_default"), command=self._restore_default_save_dir).pack(side=tk.LEFT, padx=2)
-        
-        # 文件路径输入框在下方，左边与按钮对齐
-        self.save_dir_var = tk.StringVar(value=self.current_config.get("save_dir", ""))
-        ttk.Entry(frame, textvariable=self.save_dir_var, width=50).grid(row=2, column=1, sticky=tk.W, pady=5)
-        
-        # 复选框选项
-        self.keep_file_var = tk.BooleanVar(value=self.current_config.get("keep_file", False))
-        ttk.Checkbutton(frame, text=t("settings.general.keep_file"), variable=self.keep_file_var).grid(row=3, column=0, columnspan=3, sticky=tk.W, pady=5)
-        
-        self.notify_var = tk.BooleanVar(value=self.current_config.get("notify", True))
-        ttk.Checkbutton(frame, text=t("settings.general.notify"), variable=self.notify_var).grid(row=4, column=0, columnspan=3, sticky=tk.W, pady=5)
-        
-        self.auto_open_var = tk.BooleanVar(value=self.current_config.get("auto_open_on_no_app", True))
-        ttk.Checkbutton(frame, text=t("settings.general.auto_open"), variable=self.auto_open_var).grid(row=5, column=0, columnspan=3, sticky=tk.W, pady=5)
-        
-        self.move_cursor_var = tk.BooleanVar(value=self.current_config.get("move_cursor_to_end", True))
-        ttk.Checkbutton(frame, text=t("settings.general.move_cursor"), variable=self.move_cursor_var).grid(row=6, column=0, columnspan=3, sticky=tk.W, pady=5)
+        self.lang_combo['values'] = langs
+        self.lang_combo.grid(row=6, column=1, sticky=tk.W, padx=5, pady=(15, 5))
+        # 绑定 FocusIn，避免自动全选
+        self.lang_combo.bind("<FocusIn>", self._on_focus_in)
 
     def _create_conversion_tab(self):
         """创建转换设置选项卡"""
         frame = ttk.Frame(self.notebook, padding=10)
+        frame.columnconfigure(1, weight=1)
         self.notebook.add(frame, text=t("settings.tab.conversion"))
         
         # Pandoc 路径
         ttk.Label(frame, text=t("settings.conversion.pandoc_path")).grid(row=0, column=0, sticky=tk.W, pady=5)
         
-        # 按钮放在标签旁边
-        pandoc_button_frame = ttk.Frame(frame)
-        pandoc_button_frame.grid(row=0, column=1, sticky=tk.W, padx=5, pady=5)
-        ttk.Button(pandoc_button_frame, text=t("settings.general.browse"), command=self._browse_pandoc).pack(side=tk.LEFT, padx=2)
-        
-        # 输入框在下方，左边与按钮对齐
         self.pandoc_path_var = tk.StringVar(value=self.current_config.get("pandoc_path", "pandoc"))
-        ttk.Entry(frame, textvariable=self.pandoc_path_var, width=50).grid(row=1, column=1, sticky=tk.W, pady=5)
+        self.pandoc_entry = ttk.Entry(frame, textvariable=self.pandoc_path_var, width=50)
+        self.pandoc_entry.grid(row=0, column=1, sticky=tk.EW, pady=5, padx=5)
+        self.pandoc_entry.bind("<FocusIn>", self._on_focus_in)
+        
+        # 多按钮放在输入框下方
+        pandoc_button_frame = ttk.Frame(frame)
+        pandoc_button_frame.grid(row=1, column=1, sticky=tk.W, padx=5, pady=(0, 8))
+        ttk.Button(pandoc_button_frame, text=t("settings.general.browse"), command=self._browse_pandoc).pack(side=tk.LEFT, padx=2)
+        ttk.Button(pandoc_button_frame, text=t("settings.general.restore_default"), command=self._restore_default_pandoc_path).pack(side=tk.LEFT, padx=2)
         
         # Reference Docx
         ttk.Label(frame, text=t("settings.conversion.reference_docx")).grid(row=2, column=0, sticky=tk.W, pady=5)
         
-        # 按钮放在标签旁边
-        ref_button_frame = ttk.Frame(frame)
-        ref_button_frame.grid(row=2, column=1, sticky=tk.W, padx=5, pady=5)
-        ttk.Button(ref_button_frame, text=t("settings.general.browse"), command=self._browse_ref_docx).pack(side=tk.LEFT, padx=2)
-        
-        # 输入框在下方，左边与按钮对齐
         ref_docx = self.current_config.get("reference_docx")
         self.ref_docx_var = tk.StringVar(value=ref_docx if ref_docx else "")
-        ttk.Entry(frame, textvariable=self.ref_docx_var, width=50).grid(row=3, column=1, sticky=tk.W, pady=5)
+        self.ref_docx_entry = ttk.Entry(frame, textvariable=self.ref_docx_var, width=50)
+        self.ref_docx_entry.grid(row=2, column=1, sticky=tk.EW, pady=5, padx=5)
+        self.ref_docx_entry.bind("<FocusIn>", self._on_focus_in)
+        
+        ref_button_frame = ttk.Frame(frame)
+        ref_button_frame.grid(row=3, column=1, sticky=tk.W, padx=5, pady=(0, 8))
+        ttk.Button(ref_button_frame, text=t("settings.general.browse"), command=self._browse_ref_docx).pack(side=tk.LEFT, padx=2)
+        ttk.Button(ref_button_frame, text=t("settings.general.clear"), command=self._clear_ref_docx).pack(side=tk.LEFT, padx=2)
         
         # HTML 格式化
         ttk.Label(frame, text=t("settings.conversion.html_formatting"), font=("", 10, "bold")).grid(row=4, column=0, columnspan=3, sticky=tk.W, pady=(15, 5))
@@ -194,12 +231,14 @@ class SettingsDialog:
         self.strikethrough_var = tk.BooleanVar(value=html_fmt.get("strikethrough_to_del", True))
         ttk.Checkbutton(frame, text=t("settings.conversion.strikethrough"), variable=self.strikethrough_var).grid(row=5, column=0, columnspan=3, sticky=tk.W, pady=2)
         
+        ttk.Label(frame, text=t("settings.conversion.first_paragraph_heading"), font=("", 10, "bold")).grid(row=6, column=0, columnspan=3, sticky=tk.W, pady=(12, 5))
+        
         # 其他转换选项
         self.md_indent_var = tk.BooleanVar(value=self.current_config.get("md_disable_first_para_indent", True))
-        ttk.Checkbutton(frame, text=t("settings.conversion.md_indent"), variable=self.md_indent_var).grid(row=6, column=0, columnspan=3, sticky=tk.W, pady=2)
+        ttk.Checkbutton(frame, text=t("settings.conversion.md_indent"), variable=self.md_indent_var).grid(row=7, column=0, columnspan=3, sticky=tk.W, pady=2)
         
         self.html_indent_var = tk.BooleanVar(value=self.current_config.get("html_disable_first_para_indent", True))
-        ttk.Checkbutton(frame, text=t("settings.conversion.html_indent"), variable=self.html_indent_var).grid(row=7, column=0, columnspan=3, sticky=tk.W, pady=2)
+        ttk.Checkbutton(frame, text=t("settings.conversion.html_indent"), variable=self.html_indent_var).grid(row=8, column=0, columnspan=3, sticky=tk.W, pady=2)
 
     def _create_advanced_tab(self):
         """创建高级设置选项卡"""
@@ -222,18 +261,11 @@ class SettingsDialog:
         ttk.Checkbutton(frame, text=t("settings.conversion.keep_formula"), variable=self.keep_formula_var).grid(row=0, column=0, sticky=tk.W, pady=5)
 
     def _browse_save_dir(self):
-        # 临时取消置顶，让文件对话框不被遮挡
-        original_topmost = self.root.attributes("-topmost")
-        self.root.attributes("-topmost", False)
-        self.root.update()
-        
+        """浏览保存目录"""
         path = filedialog.askdirectory(
             title=t("settings.dialog.select_save_dir"),
             initialdir=os.path.expandvars(self.save_dir_var.get())
         )
-        
-        # 恢复置顶设置
-        self.root.attributes("-topmost", original_topmost)
         
         if path:
             self.save_dir_var.set(path)
@@ -244,39 +276,41 @@ class SettingsDialog:
         # 展开环境变量，如 %USERPROFILE% 转换为实际路径
         expanded_save_dir = os.path.expandvars(default_save_dir)
         self.save_dir_var.set(expanded_save_dir)
+    
+    def _restore_default_pandoc_path(self):
+        """恢复默认 Pandoc 路径"""
+        default_path = DEFAULT_CONFIG.get("pandoc_path", "pandoc")
+        self.pandoc_path_var.set(default_path)
+    
+    def _clear_ref_docx(self):
+        """清除参考文档路径"""
+        self.ref_docx_var.set("")
+    
+    def _clear_initial_selection(self):
+        """打开窗口时避免一开始就选中首个输入框"""
+        try:
+            self.notebook.focus_set()
+        except Exception as e:
+            log(f"Failed to clear initial selection: {e}")
 
     def _browse_pandoc(self):
-        # 临时取消置顶，让文件对话框不被遮挡
-        original_topmost = self.root.attributes("-topmost")
-        self.root.attributes("-topmost", False)
-        self.root.update()
-        
+        """浏览 Pandoc 可执行文件"""
         path = filedialog.askopenfilename(
             title=t("settings.dialog.select_pandoc"),
             filetypes=[(t("settings.file_type.executable"), "*.exe"), (t("settings.file_type.all_files"), "*.*")],
             initialdir=os.path.dirname(self.pandoc_path_var.get()) if self.pandoc_path_var.get() else None
         )
         
-        # 恢复置顶设置
-        self.root.attributes("-topmost", original_topmost)
-        
         if path:
             self.pandoc_path_var.set(path)
 
     def _browse_ref_docx(self):
-        # 临时取消置顶，让文件对话框不被遮挡
-        original_topmost = self.root.attributes("-topmost")
-        self.root.attributes("-topmost", False)
-        self.root.update()
-        
+        """浏览参考 docx 文件"""
         path = filedialog.askopenfilename(
             title=t("settings.dialog.select_ref_docx"),
             filetypes=[(t("settings.file_type.word_doc"), "*.docx"), (t("settings.file_type.all_files"), "*.*")],
             initialdir=os.path.dirname(self.ref_docx_var.get()) if self.ref_docx_var.get() else None
         )
-        
-        # 恢复置顶设置
-        self.root.attributes("-topmost", original_topmost)
         
         if path:
             self.ref_docx_var.set(path)
@@ -317,8 +351,6 @@ class SettingsDialog:
             # 更新全局状态
             app_state.config = new_config
             
-            # 如果语言改变了，可能需要重启或刷新界面（这里简单处理，回调中处理刷新）
-            
             # 显示成功消息（置顶）
             self._show_topmost_message(t("settings.title.success"), t("settings.success.saved"), "info")
             
@@ -355,9 +387,9 @@ class SettingsDialog:
         
         # 使用标准消息框
         if msg_type == "error":
-            result = messagebox.showerror(title, message, parent=self.root)
+            messagebox.showerror(title, message, parent=self.root)
         else:
-            result = messagebox.showinfo(title, message, parent=self.root)
+            messagebox.showinfo(title, message, parent=self.root)
         
         # 清理临时窗口
         temp_root.destroy()
@@ -365,15 +397,17 @@ class SettingsDialog:
     def show(self):
         """显示设置对话框（非阻塞模式）"""
         try:
-            # 设置对话框在后台显示，让主事件循环继续运行
-            self.root.transient(app_state.root)
-            self.root.grab_set()  # 设置为模态对话框
+            # 设置对话框在后台显示，让主事件循环继续运行（允许最小化）
+            if app_state.root and app_state.root.winfo_exists():
+                self.root.transient(app_state.root)
+            else:
+                self.root.transient(None)
             
             # 监听退出事件，在后台检查
             self._monitor_quit_event()
             
             # 显示窗口
-            self.root.deiconify()
+            self.restore_and_focus()
             
         except Exception as e:
             log(f"Error in settings show: {e}")
@@ -393,6 +427,36 @@ class SettingsDialog:
             except Exception as e:
                 log(f"Error in quit monitor: {e}")
                 self.root.after(200, check_quit)
-        
-        # 开始监听
-        self.root.after(200, check_quit)
+                
+        if self.is_alive():
+            # 开始监听
+            self.root.after(200, check_quit)
+    
+    def _on_focus_in(self, event):
+        """所有 Entry/Combobox 获得焦点时，自动清除选中并将光标移到末尾"""
+        widget = event.widget
+
+        def clear_sel():
+            # 清除自动选中的部分
+            try:
+                if hasattr(widget, "select_clear"):
+                    widget.select_clear()
+                elif hasattr(widget, "selection_clear"):
+                    widget.selection_clear(0, "end")
+            except Exception:
+                pass
+
+            # 光标移到末尾
+            try:
+                if hasattr(widget, "icursor"):
+                    widget.icursor("end")
+            except Exception:
+                pass
+
+        # 立即清一次
+        clear_sel()
+        # 再用 after_idle 清一次，覆盖类绑定可能重新设置的选中
+        try:
+            self.root.after_idle(clear_sel)
+        except Exception:
+            pass
