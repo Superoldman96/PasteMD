@@ -4,6 +4,7 @@ import os
 import sys
 from typing import Dict, Any
 from .paths import resource_path
+from ..utils.system_detect import is_windows
 
 
 def find_pandoc() -> str:
@@ -14,15 +15,19 @@ def find_pandoc() -> str:
     - Nuitka 单文件 / 非单文件
     - Inno 安装
     - 源码运行（系统 pandoc）
+    - macOS 打包和源码运行
     """
-    # exe 同级 pandoc
+    # 根据操作系统确定可执行文件名
+    pandoc_binary = "pandoc.exe" if is_windows() else "pandoc"
+    
+    # exe/可执行文件 同级 pandoc
     exe_dir = os.path.dirname(sys.executable)
-    candidate = os.path.join(exe_dir, "pandoc", "pandoc.exe")
+    candidate = os.path.join(exe_dir, "pandoc", pandoc_binary)
     if os.path.exists(candidate):
         return candidate
 
     # 打包资源路径（Nuitka / PyInstaller onedir / 新方案）
-    candidate = resource_path("pandoc/pandoc.exe")
+    candidate = resource_path(f"pandoc/{pandoc_binary}")
     if os.path.exists(candidate):
         return candidate
 
@@ -30,11 +35,20 @@ def find_pandoc() -> str:
     return "pandoc"
 
 
+def get_default_save_dir() -> str:
+    """获取默认保存目录,跨平台兼容"""
+    if is_windows():
+        return os.path.expandvars(r"%USERPROFILE%\Documents\pastemd")
+    else:
+        # macOS 和 Linux
+        return os.path.expanduser("~/Documents/pastemd")
+
+
 DEFAULT_CONFIG: Dict[str, Any] = {
     "hotkey": "<ctrl>+<shift>+b",
     "pandoc_path": find_pandoc(),
     "reference_docx": None,
-    "save_dir": os.path.expandvars(r"%USERPROFILE%\Documents\pastemd"),
+    "save_dir": get_default_save_dir(),
     "keep_file": False,
     "notify": True,
     "enable_excel": True,
