@@ -106,8 +106,8 @@
 
 1. 下载可执行文件（[Releases 页面](https://github.com/RICHQAQ/PasteMD/releases/)）：
 
-   * **PasteMD\_vx.x.x.exe**：**便携版**，需要你本机已经安装好 **Pandoc** 并能在命令行运行。
-   若未安装，请到 [Pandoc 官网](https://pandoc.org/installing.html) 下载安装即可。
+   * ~~**PasteMD\_vx.x.x.exe**：**便携版**，需要你本机已经安装好 **Pandoc** 并能在命令行运行。
+   若未安装，请到 [Pandoc 官网](https://pandoc.org/installing.html) 下载安装即可。~~ （不再提供，需要请自行编译）
    * **PasteMD\_pandoc-Setup.exe**：**一体化安装包**，自带 Pandoc，不需要另外配置环境。
 
 2. 打开 Word、WPS 或 Excel，光标放在需要插入的位置。

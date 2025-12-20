@@ -101,7 +101,7 @@ Test description:
 ## Getting Started
 
 1. Download an executable from the [Releases page](https://github.com/RICHQAQ/PasteMD/releases/):
-   - **PasteMD_vx.x.x.exe** — portable build, requires Pandoc to be installed and accessible from `PATH`.
+   - ~~**PasteMD_vx.x.x.exe** — portable build, requires Pandoc to be installed and accessible from `PATH`.~~ (no longer provided; please build from source if needed)
    - **PasteMD_pandoc-Setup.exe** — bundled installer that ships with Pandoc and works out of the box.
 2. Open Word, WPS, or Excel and place the caret where you want to paste.
 3. Copy Markdown or HTML-rich text, then press the global hotkey (`Ctrl+Shift+B` by default).
