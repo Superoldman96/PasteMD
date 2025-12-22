@@ -11,7 +11,8 @@ class WPSPlacer(BaseDocumentPlacer):
     
     def place(self, docx_bytes: bytes, config: dict) -> PlacementResult:
         """macOS WPS 不支持自动插入,明确报错"""
-        log("macOS WPS 不支持自动插入")
+        # todo 未来考虑粘贴实现功能
+        log("macOS WPS 暂时不支持")
         return PlacementResult(
             success=False,
             method=None,

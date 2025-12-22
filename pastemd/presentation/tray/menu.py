@@ -52,6 +52,35 @@ class TrayMenuManager:
         """构建托盘菜单"""
         config = app_state.config
 
+        # 构建常规菜单项
+        normal_menu_items = [
+            pystray.MenuItem(
+                t("tray.menu.hotkey_display", hotkey=app_state.config['hotkey']),
+                lambda icon, item: None,
+                enabled=False
+            ),
+            pystray.Menu.SEPARATOR,
+            pystray.MenuItem(
+                t("tray.menu.enable_hotkey"),
+                self._on_toggle_enabled,
+                checked=lambda item: app_state.enabled
+            ),
+            pystray.MenuItem(
+                t("tray.menu.show_notifications"),
+                self._on_toggle_notify,
+                checked=lambda item: config.get("notify", True)
+            )
+        ]
+
+        if is_windows():
+            normal_menu_items.append(
+                pystray.MenuItem(
+                    t("tray.menu.move_cursor"),
+                    self._on_toggle_move_cursor,
+                    checked=lambda item: config.get("move_cursor_to_end", True)
+                )
+            )
+
         # 构建版本菜单项
         version_menu_items = [
             pystray.MenuItem(
@@ -76,32 +105,10 @@ class TrayMenuManager:
                 )
             )
 
-        html_formatting_menu = self._build_html_formatting_menu()
-
         return pystray.Menu(
-            pystray.MenuItem(
-                t("tray.menu.hotkey_display", hotkey=app_state.config['hotkey']),
-                lambda icon, item: None,
-                enabled=False
-            ),
-            pystray.Menu.SEPARATOR,
-            pystray.MenuItem(
-                t("tray.menu.enable_hotkey"),
-                self._on_toggle_enabled,
-                checked=lambda item: app_state.enabled
-            ),
-            pystray.MenuItem(
-                t("tray.menu.show_notifications"),
-                self._on_toggle_notify,
-                checked=lambda item: config.get("notify", True)
-            ),
-            pystray.MenuItem(
-                t("tray.menu.move_cursor"),
-                self._on_toggle_move_cursor,
-                checked=lambda item: config.get("move_cursor_to_end", True)
-            ),
+            *normal_menu_items,
             self._build_no_app_action_menu(),
-            html_formatting_menu,
+            self._build_html_formatting_menu(),
             pystray.Menu.SEPARATOR,
             pystray.MenuItem(t("tray.menu.set_hotkey"), self._on_set_hotkey),
             pystray.Menu.SEPARATOR,

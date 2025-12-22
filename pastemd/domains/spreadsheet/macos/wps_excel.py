@@ -18,8 +18,9 @@ class WPSExcelPlacer(BaseSpreadsheetPlacer):
         - macOS WPS 没有提供 AppleScript 接口
         - 无法通过自动化方式插入内容
         """
+        # todo 未来考虑实现
         error_msg = t("placer.macos_wps_excel.not_supported")
-        log(f"macOS WPS Excel 不支持: {error_msg}")
+        log("macOS WPS Excel 暂时不支持")
         return PlacementResult(
             success=False,
             method="unsupported",

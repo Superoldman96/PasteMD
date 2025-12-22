@@ -61,47 +61,23 @@ class WordPlacer(BaseDocumentPlacer):
         # 将路径转换为 POSIX 格式
         posix_path = os.path.abspath(docx_path)
         
-        # 根据 move_cursor_to_end 配置生成不同的 AppleScript
-        if move_cursor_to_end:
-            # 光标移动到文档末尾再插入
-            script = f'''
-            tell application "Microsoft Word"
-                activate
-                if (count of documents) is 0 then
-                    make new document
-                end if
-                
-                tell active document
-                    -- 创建一个指向文档末尾的 range
-                    set docEnd to count of characters of content
-                    set myRange to create range start docEnd end docEnd
-                    -- 在末尾插入文件
-                    insert file at myRange file name "{posix_path}"
-                    -- 尝试将光标移动到插入内容的末尾（失败不应影响插入结果）
-                    try
-                        set insertEnd to end of myRange
-                        select (create range start insertEnd end insertEnd)
-                    end try
-                end tell
+        # TODO 实现 move_cursor_to_end 光标移动功能
+        script = f'''
+        tell application "Microsoft Word"
+            activate
+            if (count of documents) is 0 then
+                make new document
+            end if
+            
+            tell active document
+                -- 创建一个指向文档末尾的 range
+                set docEnd to count of characters of content
+                set myRange to create range start docEnd end docEnd
+                -- 在末尾插入文件
+                insert file at myRange file name "{posix_path}"
             end tell
-            '''
-        else:
-            # 在当前光标位置插入
-            script = f'''
-            tell application "Microsoft Word"
-                activate
-                if (count of documents) is 0 then
-                    make new document
-                end if
-                
-                tell active document
-                    -- 在当前光标位置插入
-                    set curSel to selection
-                    set curRange to text object of curSel
-                    insert file at curRange file name "{posix_path}"
-                end tell
-            end tell
-            '''
+        end tell
+        '''
         
         try:
             subprocess.run(
@@ -111,7 +87,7 @@ class WordPlacer(BaseDocumentPlacer):
                 text=True,
                 timeout=30
             )
-            log(f"AppleScript 插入成功: {docx_path} (move_cursor_to_end={move_cursor_to_end})")
+            log(f"AppleScript 插入成功: {docx_path} ")
             return True
         except subprocess.CalledProcessError as e:
             log(f"AppleScript 执行失败: {e.stderr}")

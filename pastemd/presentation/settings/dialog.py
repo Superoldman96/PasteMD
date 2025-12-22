@@ -205,10 +205,10 @@ class SettingsDialog:
 
         self.notify_var = tk.BooleanVar(value=self.current_config.get("notify", True))
         ttk.Checkbutton(frame, text=t("settings.general.notify"), variable=self.notify_var).grid(row=4, column=0, columnspan=3, sticky=tk.W, pady=5)
-
-        self.move_cursor_var = tk.BooleanVar(value=self.current_config.get("move_cursor_to_end", True))
-        ttk.Checkbutton(frame, text=t("settings.general.move_cursor"), variable=self.move_cursor_var).grid(row=5, column=0, columnspan=3, sticky=tk.W, pady=5)
-        
+        if is_windows():
+            self.move_cursor_var = tk.BooleanVar(value=self.current_config.get("move_cursor_to_end", True))
+            ttk.Checkbutton(frame, text=t("settings.general.move_cursor"), variable=self.move_cursor_var).grid(row=5, column=0, columnspan=3, sticky=tk.W, pady=5)
+            
         # 语言设置（移动到常规页最下方）
         ttk.Label(frame, text=t("settings.general.language")).grid(row=6, column=0, sticky=tk.W, pady=(15, 5))
         
