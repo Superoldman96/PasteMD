@@ -230,5 +230,6 @@
     "placer.macos_excel.script_execution_failed": "AppleScript execution failed: {error}",
     "placer.macos_excel.script_timeout": "AppleScript execution timeout (30 seconds)",
     "placer.macos_wps.not_supported": "macOS WPS insertion is not available in this mode.\n\nNotes:\n- WPS on macOS uses clipboard rich-text paste (HTML/RTF) and may require Accessibility/Automation permissions.",
-    "placer.macos_wps_excel.not_supported": "macOS WPS Spreadsheet does not support automatic insertion\n\nSolutions:\n1. Use Microsoft Excel (recommended)\n2. Or set no_app_action to 'clipboard' in settings,\n   then manually paste the generated file into WPS Spreadsheet"
+    "placer.macos_wps_excel.not_supported": "WPS Spreadsheet insertion is only supported on macOS",
+    "placer.macos_wps_excel.insert_failed": "WPS Spreadsheet paste failed: {error}\n\nPlease check:\n1. Is WPS Spreadsheet frontmost with a target cell selected?\n2. System Settings → Privacy & Security → Accessibility: allow PasteMD\n3. If it still fails, try disabling keep_format (fallback to plain-text paste)"
 }
