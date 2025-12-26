@@ -120,6 +120,7 @@ class FallbackWorkflow(BaseWorkflow):
         # 1. 读取内容
         if content_type == "html":
             html = get_clipboard_html(self.config)
+            html = self.html_preprocessor.process(html, self.config)
             docx_bytes = self.doc_generator.convert_html_to_docx_bytes(
                 html, self.config
             )
