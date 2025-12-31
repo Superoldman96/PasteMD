@@ -253,11 +253,15 @@ class SettingsDialog:
 
         self.notify_var = tk.BooleanVar(value=self.current_config.get("notify", True))
         ttk.Checkbutton(frame, text=t("settings.general.notify"), variable=self.notify_var).grid(row=4, column=0, columnspan=3, sticky=tk.W, pady=5)
+
+        self.startup_notify_var = tk.BooleanVar(value=self.current_config.get("startup_notify", True))
+        ttk.Checkbutton(frame, text=t("settings.general.startup_notify"), variable=self.startup_notify_var).grid(row=5, column=0, columnspan=3, sticky=tk.W, pady=5)
+
         if is_windows():
             self.move_cursor_var = tk.BooleanVar(value=self.current_config.get("move_cursor_to_end", True))
-            ttk.Checkbutton(frame, text=t("settings.general.move_cursor"), variable=self.move_cursor_var).grid(row=5, column=0, columnspan=3, sticky=tk.W, pady=5)
+            ttk.Checkbutton(frame, text=t("settings.general.move_cursor"), variable=self.move_cursor_var).grid(row=6, column=0, columnspan=3, sticky=tk.W, pady=5)
             
-        hotkey_row = 5 if not is_windows() else 6
+        hotkey_row = 5 if not is_windows() else 7
         language_row = hotkey_row + 1
 
         # 热键（从设置页直接打开热键录制）
@@ -503,6 +507,7 @@ class SettingsDialog:
             new_config["save_dir"] = self.save_dir_var.get()
             new_config["keep_file"] = self.keep_file_var.get()
             new_config["notify"] = self.notify_var.get()
+            new_config["startup_notify"] = self.startup_notify_var.get()
             # Preserve the latest hotkey (may have been changed via HotkeyDialog while Settings is open).
             latest_hotkey = app_state.config.get("hotkey") or getattr(app_state, "hotkey_str", None)
             if latest_hotkey:

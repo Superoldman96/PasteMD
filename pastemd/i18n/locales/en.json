@@ -92,6 +92,7 @@
     "settings.general.clear": "Clear",
     "settings.general.keep_file": "Keep generated temporary files",
     "settings.general.notify": "Enable system notifications",
+    "settings.general.startup_notify": "Enable startup notification",
     "settings.general.auto_open": "Auto open file when no app detected",
     "settings.general.move_cursor": "Move cursor to end after insertion",
     "settings.conversion.pandoc_path": "Pandoc Path",
