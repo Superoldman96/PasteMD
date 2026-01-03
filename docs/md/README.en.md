@@ -114,7 +114,7 @@ Test description:
 
 ## Configuration
 
-The first launch creates a `config.json` file in the user data directory (Windows: `%APPDATA%\\PasteMD\\config.json`). Edit it directly, then use the tray menu item **“Reload config/hotkey”** to apply changes instantly.
+The first launch creates a `config.json` file in the user data directory (Windows: `%APPDATA%\\PasteMD\\config.json`， MacOS: `~/Library/Application Support/PasteMD/config.json`). Edit it directly, then use the tray menu item **“Reload config/hotkey”** to apply changes instantly.
 
 ```json
 {
