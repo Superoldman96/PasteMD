@@ -187,6 +187,22 @@ def get_clipboard_text() -> str:
         raise ClipboardError(f"Failed to read clipboard: {e}")
 
 
+def set_clipboard_text(text: str) -> None:
+    """
+    设置剪贴板纯文本内容
+    
+    Args:
+        text: 要设置的文本内容
+        
+    Raises:
+        ClipboardError: 剪贴板操作失败时
+    """
+    try:
+        pyperclip.copy(text)
+    except Exception as e:
+        raise ClipboardError(f"Failed to set clipboard text: {e}")
+
+
 def is_clipboard_empty() -> bool:
     """
     检查剪贴板是否为空

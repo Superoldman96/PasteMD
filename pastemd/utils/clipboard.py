@@ -12,6 +12,7 @@ from ..core.errors import ClipboardError
 if sys.platform == "darwin":
     from .macos.clipboard import (
         get_clipboard_text,
+        set_clipboard_text,
         is_clipboard_empty,
         is_clipboard_html,
         get_clipboard_html,
@@ -28,6 +29,7 @@ if sys.platform == "darwin":
 elif sys.platform == "win32":
     from .win32.clipboard import (
         get_clipboard_text,
+        set_clipboard_text,
         is_clipboard_empty,
         is_clipboard_html,
         get_clipboard_html,
@@ -118,6 +120,7 @@ else:
 # 导出公共接口
 __all__ = [
     "get_clipboard_text",
+    "set_clipboard_text",
     "is_clipboard_empty",
     "is_clipboard_html",
     "get_clipboard_html",

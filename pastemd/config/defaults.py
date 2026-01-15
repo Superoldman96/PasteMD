@@ -80,11 +80,17 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     ],
     "pandoc_filters": [],
     # 可扩展工作流配置
+    # apps 格式: [{"name": "Notion", "path": "/path/to/app", "window_patterns": [".*Notion.*"]}, ...]
+    # window_patterns: 可选的正则表达式数组，用于匹配窗口标题（如浏览器中的网页）
     "extensible_workflows": {
-        "html_md": {
+        "html": {
             "enabled": True,  # 默认开启
-            "apps": [],  # 格式: [{"name": "Notion", "path": "/Applications/Notion.app"}, ...]
+            "apps": [],
             "keep_formula_latex": True,  # True = $...$, False = MathML
+        },
+        "md": {
+            "enabled": True,  # 默认开启
+            "apps": [],
         },
     },
 }

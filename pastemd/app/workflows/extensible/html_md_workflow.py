@@ -1,6 +1,10 @@
 # -*- coding: utf-8 -*-
 """HTML+Markdown paste workflow for note-taking apps."""
 
+import os
+import subprocess
+import re
+
 from .extensible_base import ExtensibleWorkflow
 from ....core.errors import ClipboardError, PandocError
 from ....utils.clipboard import (
@@ -11,23 +15,30 @@ from ....utils.clipboard import (
     simulate_paste,
 )
 from ....utils.html_analyzer import is_plain_html_fragment
+from ....config.paths import resource_path
 from ....i18n import t
 
 
-class HtmlMdWorkflow(ExtensibleWorkflow):
-    """HTML+Markdown 粘贴工作流
+# 获取 HTML+MD 专用 Lua 过滤器路径
+LUA_HTML_MD_MATH = resource_path("lua/html-md-math.lua")
+if not os.path.isfile(LUA_HTML_MD_MATH):
+    LUA_HTML_MD_MATH = resource_path("pastemd/lua/html-md-math.lua")
+
+
+class HtmlWorkflow(ExtensibleWorkflow):
+    """HTML 粘贴工作流
     
     适用于 Notion、语雀等笔记软件：
     - 读取剪贴板 HTML/Markdown
     - 转换为 Markdown
-    - 再转换为纯净 HTML
+    - 再转换为纯净 HTML（公式可保持 $...$ 格式）
     - 同时设置剪贴板的 HTML 和纯文本格式
     - 模拟粘贴
     """
     
     @property
     def workflow_key(self) -> str:
-        return "html_md"
+        return "html"
     
     def execute(self) -> None:
         """执行 HTML+MD 粘贴工作流"""
@@ -47,9 +58,10 @@ class HtmlMdWorkflow(ExtensibleWorkflow):
             # 3. 预处理 Markdown
             md_text = self.markdown_preprocessor.process(md_text, self.config)
             
-            # 4. 转换为纯净 HTML
-            html_text = self._convert_to_clean_html(md_text)
-            print("Converted HTML:\n", html_text)
+            # 4. 转换为纯净 HTML（使用专用方法）
+            keep_formula = self.workflow_config.get("keep_formula_latex", True)
+            html_text = self._convert_md_to_html_for_notes(md_text, keep_formula)
+            print(f"Converted HTML:\n{html_text}\n--- End of HTML ---")
             # 5. 设置剪贴板（HTML + 纯文本 Markdown）
             set_clipboard_rich_text(html=html_text, text=md_text)
             self._log("Set clipboard with HTML and plain text")
@@ -88,26 +100,55 @@ class HtmlMdWorkflow(ExtensibleWorkflow):
         
         raise ClipboardError("剪贴板为空或无有效内容")
     
-    def _convert_to_clean_html(self, md_text: str) -> str:
-        """转换 Markdown 为纯净 HTML（处理公式格式）"""
-        # 根据配置决定公式格式
-        keep_formula = self.workflow_config.get("keep_formula_latex", True)
+    def _convert_md_to_html_for_notes(self, md_text: str, keep_formula: bool = True) -> str:
+        """
+        转换 Markdown 为笔记软件适用的 HTML
         
-        html = self.doc_generator.convert_markdown_to_html_text(
-            md_text,
-            {
-                **self.config,
-                "Keep_original_formula": keep_formula,
-            }
+        使用专用 Lua 过滤器 html-md-math.lua：
+        - 保持公式为 $...$ / $$...$$ 格式
+        - 输出纯净的 HTML fragment
+        """
+        pandoc_path = self.config.get("pandoc_path", "pandoc")
+        
+        cmd = [
+            pandoc_path,
+            "-f", "markdown+tex_math_dollars+raw_tex+tex_math_double_backslash+tex_math_single_backslash",
+            "-t", "html",
+            "-o", "-",
+            "--wrap", "none",
+        ]
+        
+        # 使用专用公式过滤器（保持 $...$ 格式）
+        if keep_formula and os.path.isfile(LUA_HTML_MD_MATH):
+            cmd += ["--lua-filter", LUA_HTML_MD_MATH]
+        
+        startupinfo = None
+        creationflags = 0
+        if os.name == "nt":
+            startupinfo = subprocess.STARTUPINFO()
+            startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+            creationflags = subprocess.CREATE_NO_WINDOW
+        
+        result = subprocess.run(
+            cmd,
+            input=md_text.encode("utf-8"),
+            capture_output=True,
+            text=False,
+            shell=False,
+            startupinfo=startupinfo,
+            creationflags=creationflags,
         )
         
+        if result.returncode != 0:
+            err = (result.stderr or b"").decode("utf-8", "ignore")
+            self._log(f"Pandoc MD to HTML error: {err}")
+            raise PandocError(err or "Pandoc Markdown to HTML conversion failed")
+        
+        html = result.stdout.decode("utf-8", "ignore")
         return self._strip_html_wrapper(html)
     
     def _strip_html_wrapper(self, html: str) -> str:
         """移除 Pandoc 生成的 HTML 包装标签（如 DOCTYPE、html、body）"""
-        # Pandoc 可能生成完整 HTML 文档，我们只需要 body 内容
-        import re
-        
         # 尝试提取 body 内容
         body_match = re.search(r"<body[^>]*>(.*?)</body>", html, re.DOTALL | re.IGNORECASE)
         if body_match:
@@ -120,3 +161,4 @@ class HtmlMdWorkflow(ExtensibleWorkflow):
         html = re.sub(r"<body[^>]*>|</body>", "", html, flags=re.IGNORECASE)
         
         return html.strip()
+

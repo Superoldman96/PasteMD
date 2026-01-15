@@ -65,7 +65,7 @@ def detect_wps_type() -> str:
     Returns:
         "wps" (文字), "wps_excel" (表格) 或空字符串
     """
-    window_title = _get_frontmost_window_title()
+    window_title = get_frontmost_window_title()
     log(f"WPS 窗口标题: {window_title}")
 
     # 如果标题拿不到，就只能保守默认文字
@@ -159,7 +159,7 @@ def _get_frontmost_app_via_osascript() -> dict | None:
         return None
 
 
-def _get_frontmost_window_title() -> str:
+def get_frontmost_window_title() -> str:
     """
     尝试获取前台窗口标题
     先通过 osascript 获取前台应用的 pid，再查询该进程的窗口

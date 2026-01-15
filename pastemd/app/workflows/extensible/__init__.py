@@ -5,9 +5,12 @@ Provides user-configurable workflows for specific applications.
 """
 
 from .extensible_base import ExtensibleWorkflow
-from .html_md_workflow import HtmlMdWorkflow
+from .html_md_workflow import HtmlWorkflow
+from .md_workflow import MdWorkflow
 
 __all__ = [
     "ExtensibleWorkflow",
-    "HtmlMdWorkflow",
+    "HtmlWorkflow",
+    "MdWorkflow",
 ]
+
