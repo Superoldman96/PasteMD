@@ -12,6 +12,7 @@ from ...i18n import t
 from ...config.defaults import RESERVED_APPS
 from ...config.paths import get_app_icon_path
 from ...utils.dpi import get_dpi_scale
+from ...utils.system_detect import is_macos, is_windows
 from ...utils.logging import log
 
 
@@ -76,7 +77,17 @@ class WorkflowSection:
         list_frame.grid(row=1, column=0, columnspan=2, sticky=tk.EW, pady=5)
         list_frame.columnconfigure(0, weight=1)
         scale = get_dpi_scale()
-        icon_size = max(16, int(16 * scale))
+        column_scale = scale
+        icon_scale = scale
+        name_stretch = True
+        pattern_stretch = False
+        if is_macos():
+            # macOS 字体和 DPI 偏大，收窄列宽/行高，避免挤压窗口名称列
+            column_scale = min(scale, 1.25)
+            icon_scale = min(scale, 1.25)
+            name_stretch = False
+            pattern_stretch = True
+        icon_size = max(16, int(16 * icon_scale))
         base_font = tkfont.nametofont("TkDefaultFont")
         row_height = max(icon_size + 6, base_font.metrics("linespace") + 6)
         style = ttk.Style(self.frame)
@@ -93,10 +104,24 @@ class WorkflowSection:
         )
         self.treeview.heading("#0", text=t("settings.extensions.app_name"))
         self.treeview.heading("window_patterns", text=t("settings.extensions.window_pattern"))
-        name_col_width = int(220 * scale)
-        self.treeview.column("#0", width=name_col_width, minwidth=int(160 * scale), stretch=True)
-        pattern_col_width = int(200 * scale)
-        self.treeview.column("window_patterns", width=pattern_col_width, minwidth=int(120 * scale), stretch=False)
+        name_col_width = int(220 * column_scale)
+        name_minwidth = int(160 * column_scale)
+        if is_macos():
+            name_col_width = int(200 * column_scale)
+            name_minwidth = int(140 * column_scale)
+        self.treeview.column(
+            "#0",
+            width=name_col_width,
+            minwidth=name_minwidth,
+            stretch=name_stretch,
+        )
+        pattern_col_width = int(200 * column_scale)
+        self.treeview.column(
+            "window_patterns",
+            width=pattern_col_width,
+            minwidth=int(120 * column_scale),
+            stretch=pattern_stretch,
+        )
         
         # 双击编辑窗口模式
         self.treeview.bind("<Double-1>", self._on_double_click)
@@ -192,9 +217,9 @@ class WorkflowSection:
     
     def _add_app(self):
         """添加应用（平台特定）"""
-        if sys.platform == "darwin":
+        if is_macos():
             self._add_app_macos()
-        elif sys.platform == "win32":
+        elif is_windows():
             self._add_app_windows()
         else:
             messagebox.showinfo(
@@ -375,9 +400,9 @@ class WorkflowSection:
         if not path:
             return None
         
-        if sys.platform == "darwin":
+        if is_macos():
             return self._extract_macos_icon(path)
-        elif sys.platform == "win32":
+        elif is_windows():
             return self._extract_windows_icon(path)
         return None
     
@@ -628,5 +653,3 @@ class ExtensionsTab:
             "md": self.md_section.get_config(),
             "latex": self.latex_section.get_config(),
         }
-
-
