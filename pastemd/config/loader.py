@@ -102,7 +102,7 @@ class ConfigLoader:
         app_workflows = {}  # {app_name: [workflow_key1, workflow_key2, ...]}
         
         # 收集所有工作流中的应用
-        for workflow_key in ["html", "md", "latex"]:
+        for workflow_key in ["html", "md", "latex", "file"]:
             workflow_config = ext_config.get(workflow_key, {})
             apps = workflow_config.get("apps", [])
             

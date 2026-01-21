@@ -10,7 +10,7 @@ from ...i18n import t
 from .word import WordWorkflow, WPSWorkflow
 from .excel import ExcelWorkflow, WPSExcelWorkflow
 from .fallback import FallbackWorkflow
-from .extensible import HtmlWorkflow, MdWorkflow, LatexWorkflow
+from .extensible import HtmlWorkflow, MdWorkflow, LatexWorkflow, FileWorkflow
 
 
 class WorkflowRouter:
@@ -41,6 +41,7 @@ class WorkflowRouter:
             "html": HtmlWorkflow(),
             "md": MdWorkflow(),
             "latex": LatexWorkflow(),
+            "file": FileWorkflow(),
         }
         
         self.notification_manager = NotificationManager()

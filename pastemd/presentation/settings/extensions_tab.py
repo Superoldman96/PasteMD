@@ -636,6 +636,20 @@ class ExtensionsTab:
             self.latex_section.frame, 
             text=t("settings.extensions.latex_title")
         )
+
+        # 文件粘贴工作流配置
+        self.file_section = WorkflowSection(
+            self.inner_notebook,
+            workflow_key="file",
+            enable_key="settings.extensions.file_enable",
+            config=ext_config.get("file", {}),
+            has_keep_latex=False,
+            check_app_conflict=self._check_app_conflict,
+        )
+        self.inner_notebook.add(
+            self.file_section.frame,
+            text=t("settings.extensions.file_title")
+        )
         
         # 检查配置中的跨工作流应用冲突
         self.frame.after(100, self._check_config_conflicts)
@@ -663,6 +677,7 @@ class ExtensionsTab:
             "html": (self.html_section, t("settings.extensions.html_title")),
             "md": (self.md_section, t("settings.extensions.md_title")),
             "latex": (self.latex_section, t("settings.extensions.latex_title")),
+            "file": (self.file_section, t("settings.extensions.file_title")),
         }
         
         for workflow_key, (section, workflow_name) in workflow_sections.items():
@@ -682,6 +697,7 @@ class ExtensionsTab:
             "html": (self.html_section, t("settings.extensions.html_title")),
             "md": (self.md_section, t("settings.extensions.md_title")),
             "latex": (self.latex_section, t("settings.extensions.latex_title")),
+            "file": (self.file_section, t("settings.extensions.file_title")),
         }
         
         # 收集所有应用及其所在工作流
@@ -726,4 +742,5 @@ class ExtensionsTab:
             "html": self.html_section.get_config(),
             "md": self.md_section.get_config(),
             "latex": self.latex_section.get_config(),
+            "file": self.file_section.get_config(),
         }

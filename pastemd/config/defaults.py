@@ -96,7 +96,10 @@ DEFAULT_CONFIG: Dict[str, Any] = {
             "enabled": True,  # 默认开启
             "apps": [],
         },
+        "file": {
+            "enabled": True,  # 默认开启
+            "apps": [],
+        },
     },
 }
-
 
