@@ -2,7 +2,11 @@
 
 from bs4 import BeautifulSoup
 from .base import BasePreprocessor
-from ...utils.html_formatter import clean_html_content, convert_strikethrough_to_del
+from ...utils.html_formatter import (
+    clean_html_content,
+    convert_css_font_to_semantic,
+    convert_strikethrough_to_del,
+)
 from ...utils.logging import log
 
 
@@ -37,6 +41,8 @@ class HtmlPreprocessor(BasePreprocessor):
             html_formatting = {}
         if html_formatting.get("strikethrough_to_del", True):
             convert_strikethrough_to_del(soup)
+        if html_formatting.get("css_font_to_semantic", True):
+            convert_css_font_to_semantic(soup)
 
         # unwrap_li_paragraphs(soup)
         # remove_empty_paragraphs(soup)

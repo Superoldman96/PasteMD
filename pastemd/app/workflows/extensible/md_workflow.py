@@ -36,23 +36,24 @@ class MdWorkflow(ExtensibleWorkflow):
             # 1. 读取剪贴板内容
             content_type, content = self._read_clipboard()
             self._log(f"MD workflow: content_type={content_type}")
+            effective_config = self._build_md_config()
             
             # 2. 转换为 Markdown（如果是 HTML）
             if content_type == "html":
-                content = self.html_preprocessor.process(content, self.config)
+                content = self.html_preprocessor.process(content, effective_config)
                 md_text = self.doc_generator.convert_html_to_markdown_text(
-                    content, self.config
+                    content, effective_config
                 )
             else:
                 md_text = content
             
             # 3. 预处理 Markdown
-            md_text = self.markdown_preprocessor.process(md_text, self.config)
+            md_text = self.markdown_preprocessor.process(md_text, effective_config)
 
             # 4. 使用粘贴落地器
             result = self.placer.place(
                 content=md_text,
-                config=self.config,
+                config=effective_config,
             )
 
             if result.success:
@@ -84,3 +85,16 @@ class MdWorkflow(ExtensibleWorkflow):
             return ("markdown", get_clipboard_text())
         
         raise ClipboardError("剪贴板为空或无有效内容")
+
+    def _build_md_config(self) -> dict:
+        """Build a per-workflow config for MD paste without affecting other workflows."""
+        config = dict(self.config)
+        html_formatting = dict(config.get("html_formatting", {}) or {})
+
+        md_ext = (config.get("extensible_workflows") or {}).get("md", {})
+        md_html_formatting = md_ext.get("html_formatting")
+        if isinstance(md_html_formatting, dict):
+            html_formatting.update(md_html_formatting)
+
+        config["html_formatting"] = html_formatting
+        return config

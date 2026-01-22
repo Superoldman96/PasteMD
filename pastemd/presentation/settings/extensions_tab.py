@@ -66,6 +66,7 @@ class WorkflowSection:
         self._create_app_treeview()
         
         # 公式格式开关（仅 HTML 工作流）
+        next_row = 2
         if self.has_keep_latex:
             self.keep_latex_var = tk.BooleanVar(
                 value=self.config.get("keep_formula_latex", True)
@@ -75,6 +76,18 @@ class WorkflowSection:
                 text=t("settings.extensions.keep_latex"),
                 variable=self.keep_latex_var
             ).grid(row=3, column=0, columnspan=2, sticky=tk.W, pady=(5, 0))
+            next_row = 4
+        
+        if self.workflow_key == "md":
+            html_formatting = self.config.get("html_formatting", {})
+            self.css_font_to_semantic_var = tk.BooleanVar(
+                value=html_formatting.get("css_font_to_semantic", True)
+            )
+            ttk.Checkbutton(
+                self.frame,
+                text=t("settings.conversion.css_font_to_semantic"),
+                variable=self.css_font_to_semantic_var,
+            ).grid(row=next_row, column=0, columnspan=2, sticky=tk.W, pady=(5, 0))
     
     def _create_app_treeview(self):
         """创建应用列表 Treeview"""
@@ -570,6 +583,10 @@ class WorkflowSection:
         }
         if self.has_keep_latex:
             config["keep_formula_latex"] = self.keep_latex_var.get()
+        if hasattr(self, "css_font_to_semantic_var"):
+            config["html_formatting"] = {
+                "css_font_to_semantic": self.css_font_to_semantic_var.get()
+            }
         return config
 
 

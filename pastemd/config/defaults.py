@@ -101,6 +101,9 @@ DEFAULT_CONFIG: Dict[str, Any] = {
         "md": {
             "enabled": True,  # 默认开启
             "apps": [],
+            "html_formatting": {
+                "css_font_to_semantic": True,
+            },
         },
         "latex": {
             "enabled": True,  # 默认开启

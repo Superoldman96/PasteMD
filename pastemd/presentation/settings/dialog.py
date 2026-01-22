@@ -370,57 +370,94 @@ class SettingsDialog:
 
     def _create_conversion_tab(self):
         """创建转换设置选项卡"""
-        frame = ttk.Frame(self.notebook, padding=10)
-        frame.columnconfigure(1, weight=1)
+        frame = ttk.Frame(self.notebook)
+        frame.rowconfigure(0, weight=1)
+        frame.columnconfigure(0, weight=1)
         self.notebook.add(frame, text=t("settings.tab.conversion"))
         self._tab_map["conversion"] = frame
+
+        canvas = tk.Canvas(frame, highlightthickness=0)
+        scrollbar = ttk.Scrollbar(frame, orient=tk.VERTICAL, command=canvas.yview)
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        scrollbar.grid(row=0, column=1, sticky=tk.NS)
+        canvas.grid(row=0, column=0, sticky=tk.NSEW)
+
+        content = ttk.Frame(canvas, padding=10)
+        content.columnconfigure(1, weight=1)
+
+        window_id = canvas.create_window((0, 0), window=content, anchor="nw")
+
+        def _on_content_configure(event):
+            canvas.configure(scrollregion=canvas.bbox("all"))
+
+        def _on_canvas_configure(event):
+            canvas.itemconfigure(window_id, width=event.width)
+
+        content.bind("<Configure>", _on_content_configure)
+        canvas.bind("<Configure>", _on_canvas_configure)
+
+        def _on_mousewheel(event):
+            if event.delta:
+                canvas.yview_scroll(int(-event.delta / 120), "units")
+
+        def _on_enter(_event):
+            canvas.bind_all("<MouseWheel>", _on_mousewheel)
+
+        def _on_leave(_event):
+            canvas.unbind_all("<MouseWheel>")
+
+        canvas.bind("<Enter>", _on_enter)
+        canvas.bind("<Leave>", _on_leave)
+        content.bind("<Enter>", _on_enter)
+        content.bind("<Leave>", _on_leave)
         
         # Pandoc 路径
-        ttk.Label(frame, text=t("settings.conversion.pandoc_path")).grid(row=0, column=0, sticky=tk.W, pady=5)
+        ttk.Label(content, text=t("settings.conversion.pandoc_path")).grid(row=0, column=0, sticky=tk.W, pady=5)
         
         self.pandoc_path_var = tk.StringVar(value=self.current_config.get("pandoc_path", "pandoc"))
-        self.pandoc_entry = ttk.Entry(frame, textvariable=self.pandoc_path_var, width=50)
+        self.pandoc_entry = ttk.Entry(content, textvariable=self.pandoc_path_var, width=50)
         self.pandoc_entry.grid(row=0, column=1, sticky=tk.EW, pady=5, padx=5)
         self.pandoc_entry.bind("<FocusIn>", self._on_focus_in)
         
         # 多按钮放在输入框下方
-        pandoc_button_frame = ttk.Frame(frame)
+        pandoc_button_frame = ttk.Frame(content)
         pandoc_button_frame.grid(row=1, column=1, sticky=tk.W, padx=5, pady=(0, 8))
         ttk.Button(pandoc_button_frame, text=t("settings.general.browse"), command=self._browse_pandoc).pack(side=tk.LEFT, padx=2)
         ttk.Button(pandoc_button_frame, text=t("settings.general.restore_default"), command=self._restore_default_pandoc_path).pack(side=tk.LEFT, padx=2)
         
         # Reference Docx
-        ttk.Label(frame, text=t("settings.conversion.reference_docx")).grid(row=2, column=0, sticky=tk.W, pady=5)
+        ttk.Label(content, text=t("settings.conversion.reference_docx")).grid(row=2, column=0, sticky=tk.W, pady=5)
         
         ref_docx = self.current_config.get("reference_docx")
         self.ref_docx_var = tk.StringVar(value=ref_docx if ref_docx else "")
-        self.ref_docx_entry = ttk.Entry(frame, textvariable=self.ref_docx_var, width=50)
+        self.ref_docx_entry = ttk.Entry(content, textvariable=self.ref_docx_var, width=50)
         self.ref_docx_entry.grid(row=2, column=1, sticky=tk.EW, pady=5, padx=5)
         self.ref_docx_entry.bind("<FocusIn>", self._on_focus_in)
         
-        ref_button_frame = ttk.Frame(frame)
+        ref_button_frame = ttk.Frame(content)
         ref_button_frame.grid(row=3, column=1, sticky=tk.W, padx=5, pady=(0, 8))
         ttk.Button(ref_button_frame, text=t("settings.general.browse"), command=self._browse_ref_docx).pack(side=tk.LEFT, padx=2)
         ttk.Button(ref_button_frame, text=t("settings.general.clear"), command=self._clear_ref_docx).pack(side=tk.LEFT, padx=2)
         
         # Pandoc Filters 配置区
-        current_row = self._create_filters_section(frame, row=4)
+        current_row = self._create_filters_section(content, row=4)
         
         # HTML 格式化
-        ttk.Label(frame, text=t("settings.conversion.html_formatting"), font=("", 10, "bold")).grid(row=current_row, column=0, columnspan=3, sticky=tk.W, pady=(15, 5))
+        ttk.Label(content, text=t("settings.conversion.html_formatting"), font=("", 10, "bold")).grid(row=current_row, column=0, columnspan=3, sticky=tk.W, pady=(15, 5))
         
         html_fmt = self.current_config.get("html_formatting", {})
         self.strikethrough_var = tk.BooleanVar(value=html_fmt.get("strikethrough_to_del", True))
-        ttk.Checkbutton(frame, text=t("settings.conversion.strikethrough"), variable=self.strikethrough_var).grid(row=current_row+1, column=0, columnspan=3, sticky=tk.W, pady=2)
+        ttk.Checkbutton(content, text=t("settings.conversion.strikethrough"), variable=self.strikethrough_var).grid(row=current_row+1, column=0, columnspan=3, sticky=tk.W, pady=2)
         
-        ttk.Label(frame, text=t("settings.conversion.first_paragraph_heading"), font=("", 10, "bold")).grid(row=current_row+2, column=0, columnspan=3, sticky=tk.W, pady=(12, 5))
+        ttk.Label(content, text=t("settings.conversion.first_paragraph_heading"), font=("", 10, "bold")).grid(row=current_row+2, column=0, columnspan=3, sticky=tk.W, pady=(12, 5))
         
         # 其他转换选项
         self.md_indent_var = tk.BooleanVar(value=self.current_config.get("md_disable_first_para_indent", True))
-        ttk.Checkbutton(frame, text=t("settings.conversion.md_indent"), variable=self.md_indent_var).grid(row=current_row+3, column=0, columnspan=3, sticky=tk.W, pady=2)
+        ttk.Checkbutton(content, text=t("settings.conversion.md_indent"), variable=self.md_indent_var).grid(row=current_row+3, column=0, columnspan=3, sticky=tk.W, pady=2)
         
         self.html_indent_var = tk.BooleanVar(value=self.current_config.get("html_disable_first_para_indent", True))
-        ttk.Checkbutton(frame, text=t("settings.conversion.html_indent"), variable=self.html_indent_var).grid(row=current_row+4, column=0, columnspan=3, sticky=tk.W, pady=2)
+        ttk.Checkbutton(content, text=t("settings.conversion.html_indent"), variable=self.html_indent_var).grid(row=current_row+4, column=0, columnspan=3, sticky=tk.W, pady=2)
 
     def _create_advanced_tab(self):
         """创建高级设置选项卡"""

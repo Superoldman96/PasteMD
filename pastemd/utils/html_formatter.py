@@ -7,6 +7,8 @@ from typing import Dict, Optional
 
 from bs4 import BeautifulSoup, NavigableString, Tag
 
+_CSS_CLASS_RE = re.compile(r"\.(?P<class>[A-Za-z0-9_-]+)\s*\{(?P<body>[^}]*)\}", re.DOTALL)
+
 
 def clean_html_content(soup: BeautifulSoup, options: Optional[Dict[str, object]] = None) -> None:
     """
@@ -33,6 +35,108 @@ def clean_html_content(soup: BeautifulSoup, options: Optional[Dict[str, object]]
     
     # 清理 LaTeX 公式块中的 <br> 标签
     _clean_latex_br_tags(soup)
+
+
+def convert_css_font_to_semantic(soup: BeautifulSoup) -> None:
+    """
+    将 CSS 中的粗体/斜体类映射为 <strong>/<em>，以便 Pandoc 保留样式。
+
+    主要用于 Excel/WPS 复制的 HTML：样式往往只写在 <style> 的 class 中，
+    直接转 Markdown 会丢失加粗/斜体信息。
+    """
+    css_text_parts = []
+    for style in soup.find_all("style"):
+        css_text_parts.append(style.get_text() or "")
+    css_text = "\n".join(css_text_parts)
+    if not css_text.strip():
+        return
+
+    class_styles: dict[str, tuple[bool, bool]] = {}
+    for match in _CSS_CLASS_RE.finditer(css_text):
+        class_name = match.group("class")
+        body = match.group("body").lower()
+
+        bold = False
+        italic = False
+        weight_match = re.search(r"font-weight\s*:\s*([^;]+)", body)
+        if weight_match:
+            value = weight_match.group(1).strip()
+            if value in ("bold", "bolder"):
+                bold = True
+            elif value.isdigit() and int(value) >= 600:
+                bold = True
+
+        style_match = re.search(r"font-style\s*:\s*([^;]+)", body)
+        if style_match:
+            value = style_match.group(1).strip()
+            if "italic" in value or "oblique" in value:
+                italic = True
+
+        if bold or italic:
+            class_styles[class_name] = (bold, italic)
+
+    if not class_styles:
+        return
+
+    def _build_wrapper(current_bold: bool, current_italic: bool) -> tuple[Tag, Tag]:
+        if current_bold and current_italic:
+            strong = soup.new_tag("strong")
+            em = soup.new_tag("em")
+            strong.append(em)
+            return strong, em
+        if current_bold:
+            strong = soup.new_tag("strong")
+            return strong, strong
+        em = soup.new_tag("em")
+        return em, em
+
+    for tag in soup.find_all(class_=True):
+        classes = tag.get("class") or []
+        bold = False
+        italic = False
+        for class_name in classes:
+            if class_name in class_styles:
+                class_bold, class_italic = class_styles[class_name]
+                bold = bold or class_bold
+                italic = italic or class_italic
+
+        if not (bold or italic):
+            continue
+
+        if tag.name in ("table", "tbody", "thead", "tfoot", "tr"):
+            continue
+
+        if tag.name in ("td", "th"):
+            if not tag.contents:
+                continue
+            wrapper, inner = _build_wrapper(bold, italic)
+            for child in list(tag.contents):
+                inner.append(child.extract())
+            tag.append(wrapper)
+            continue
+
+        if tag.name in ("strong", "em"):
+            if tag.name == "strong" and bold and not italic:
+                continue
+            if tag.name == "em" and italic and not bold:
+                continue
+            # 需要补充另一种样式，直接包裹内容
+            if tag.name == "strong" and italic:
+                wrapper = soup.new_tag("em")
+                for child in list(tag.contents):
+                    wrapper.append(child.extract())
+                tag.append(wrapper)
+            elif tag.name == "em" and bold:
+                wrapper = soup.new_tag("strong")
+                for child in list(tag.contents):
+                    wrapper.append(child.extract())
+                tag.append(wrapper)
+            continue
+
+        wrapper, inner = _build_wrapper(bold, italic)
+        for child in list(tag.contents):
+            inner.append(child.extract())
+        tag.replace_with(wrapper)
 
 
 def convert_strikethrough_to_del(soup) -> None:
@@ -542,6 +646,3 @@ def _fix_task_list_math_issue(soup) -> None:
     """
     # 恢复任务列表标记
     _restore_task_list_brackets(soup)
-
-
-
