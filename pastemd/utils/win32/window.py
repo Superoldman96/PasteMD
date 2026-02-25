@@ -184,7 +184,7 @@ def cleanup_background_wps_processes(ep: int = 0) -> int:
                     log(f"Protected: user application {pid} (no /Automation)")
                 else:
                     log(f"Skipped: automation process {pid} (has /Automation)")
-            except:
+            except Exception:
                 pass
 
         # 2. 保护所有主进程的子进程树
@@ -195,7 +195,7 @@ def cleanup_background_wps_processes(ep: int = 0) -> int:
                         protected_pids.add(proc.pid)
                         log(f"Protected: child {proc.pid} (parent: {parent_pid})")
                         add_children(proc.pid)
-                except:
+                except Exception:
                     pass
 
         for pid in list(protected_pids):
@@ -222,7 +222,7 @@ def cleanup_background_wps_processes(ep: int = 0) -> int:
                     cleaned_count += 1
                 except Exception as e:
                     log(f"Failed to terminate {pid}: {e}")
-            except:
+            except Exception:
                 pass
         
         if cleaned_count > 0:
