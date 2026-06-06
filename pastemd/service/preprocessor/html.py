@@ -20,15 +20,18 @@ def _wrap_obsidian_math_latex(soup: BeautifulSoup, html: str) -> None:
         return
 
     for tag in soup.select("span.math.math-inline"):
-        text = tag.get_text()
-        if text and not text.strip().startswith("$"):
-            tag.string = f"${text}$"
+        text = tag.get_text().strip()
+        if not text:
+            continue
+        latex = text if text.startswith("$") else f"${text}$"
+        tag.replace_with(latex)
 
-    for tag in soup.select("div.math.math-block"):
-        text = tag.get_text()
-        stripped = text.strip()
-        if stripped and not stripped.startswith("$$"):
-            tag.string = f"$${text}$$"
+    for tag in soup.select(".math.math-block"):
+        text = tag.get_text().strip()
+        if not text:
+            continue
+        latex = text if text.startswith("$$") else f"$${text}$$"
+        tag.replace_with(latex)
 
 
 class HtmlPreprocessor(BasePreprocessor):
