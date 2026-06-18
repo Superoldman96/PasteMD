@@ -173,7 +173,7 @@ class DocxProcessor:
                 root = ET.fromstring(document_xml)
 
                 modified_count = 0
-                for table in root.findall(".//w:tbl", namespaces):
+                for table in DocxProcessor._iter_top_level_tables(root):
                     widths = DocxProcessor._suggest_table_column_widths(table, namespaces)
                     if not widths:
                         continue
@@ -264,6 +264,21 @@ class DocxProcessor:
         return xml_text.encode("utf-8")
 
     @staticmethod
+    def _iter_top_level_tables(root: ET.Element) -> list[ET.Element]:
+        w = f"{{{_WORD_NS}}}"
+        tables: list[ET.Element] = []
+
+        def walk(element: ET.Element, inside_cell: bool) -> None:
+            for child in list(element):
+                child_inside_cell = inside_cell or child.tag == f"{w}tc"
+                if child.tag == f"{w}tbl" and not inside_cell:
+                    tables.append(child)
+                walk(child, child_inside_cell)
+
+        walk(root, False)
+        return tables
+
+    @staticmethod
     def _suggest_table_column_widths(table: ET.Element, namespaces: dict) -> list[int]:
         rows = table.findall("./w:tr", namespaces)
         if not rows:
@@ -280,13 +295,28 @@ class DocxProcessor:
         scores = [0.0] * column_count
         for cells in row_cells:
             for index, cell in enumerate(cells):
-                text = "".join(node.text or "" for node in cell.findall(".//w:t", namespaces))
+                text = DocxProcessor._direct_cell_text(cell)
                 scores[index] = max(scores[index], DocxProcessor._visual_text_length(text))
 
         if not any(scores):
             return []
 
         return DocxProcessor._column_widths_from_scores(scores, _DOCX_TABLE_WIDTH_TWIPS)
+
+    @staticmethod
+    def _direct_cell_text(cell: ET.Element) -> str:
+        w = f"{{{_WORD_NS}}}"
+        parts: list[str] = []
+
+        def walk(element: ET.Element, inside_nested_table: bool) -> None:
+            for child in list(element):
+                child_inside_nested_table = inside_nested_table or child.tag == f"{w}tbl"
+                if child.tag == f"{w}t" and not child_inside_nested_table:
+                    parts.append(child.text or "")
+                walk(child, child_inside_nested_table)
+
+        walk(cell, False)
+        return "".join(parts)
 
     @staticmethod
     def _has_merged_cells(row_cells: list[list[ET.Element]], namespaces: dict) -> bool:
